@@ -8,6 +8,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from agents import Agent, Model, ModelSettings, RunConfig, RunHooks, Runner, RunResult, function_tool
 from dotenv import load_dotenv
@@ -70,8 +71,20 @@ class ResponseError(RuntimeError):
 def build_lead(
     model: str | Model, reviews: list[str], config: RunConfig, hooks: RunHooks | None = None,
     *, sample_reader: SampleReader | None = None,
+    specialist_input: str | None = None,
+    specialist_instructions: str = "",
+    review_validator: Callable[[str], None] | None = None,
 ) -> Agent:
     """Keep the Lead in control; the specialist returns through a tool call."""
+    specialist_started = False
+
+    def pinned_input(_):
+        nonlocal specialist_started
+        if specialist_started:
+            raise DelegationError("Only one pinned-evidence specialist review attempt is allowed.")
+        specialist_started = True
+        return specialist_input
+
     async def record_review(result: RunResult) -> str:
         output = result.final_output
         if not isinstance(output, str) or not output.strip():
@@ -83,6 +96,8 @@ def build_lead(
                 require_citations(output, sample_reader.sources)
             except SourceCitationError as exc:
                 raise ResponseError(str(exc)) from exc
+        if review_validator is not None:
+            review_validator(output)
         reviews.append(output)
         return output
 
@@ -96,7 +111,7 @@ def build_lead(
         ui_tools = [read_sample_files]
     ui = Agent(
         name="UI Agent",
-        instructions=UI_INSTRUCTIONS + (
+        instructions=UI_INSTRUCTIONS + specialist_instructions + (
             SOURCE_INSTRUCTIONS if sample_reader is not None else "You have no file access."
         ),
         model=model,
@@ -131,6 +146,9 @@ def build_lead(
             max_turns=2,
             run_config=config,
             hooks=hooks,
+            # A caller can pin the evidence for one bounded review attempt, so
+            # a manager cannot omit it or start repeated specialist reviews.
+            input_builder=pinned_input if specialist_input is not None else None,
         )],
     )
 
