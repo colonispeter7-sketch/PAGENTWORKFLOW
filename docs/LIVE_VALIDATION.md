@@ -4,6 +4,11 @@ This test runs the existing Lead and UI Agents against the OpenAI Responses API.
 It adds no agents or tools. The only task is the repository's fictional Lantern
 Board example; there is no argument for supplying private files or arbitrary tasks.
 
+This describes the default description-only test. Task #4 adds an explicit
+`--sample-codebase` mode, which gives only the UI Agent a bounded fictional-source
+read tool. See [read-only source validation](READ_ONLY_SAMPLE.md) for that mode's
+additional evidence, constraints, and fourth model request.
+
 ## Configuration verified before execution
 
 - Python 3.10+; `requirements.txt` pins the official `openai-agents==0.24.0` SDK
