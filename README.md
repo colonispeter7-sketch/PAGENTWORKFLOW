@@ -40,8 +40,8 @@ treated as review findings. The Lead is limited to four turns, each specialist r
 to two, with a 60-second timeout per model request (SDK retries may add time).
 
 `h2o.py` contains the agent definitions, orchestration, and standard-library CLI.
-`tests/test_smoke.py` uses `unittest`; there is no app framework, database, server,
-or persistent conversation storage.
+`tests/test_smoke.py` uses `unittest`; the core CLI has no database or persistent
+conversation storage. The optional MCP integration below adds a separate server.
 
 ## Setup and run
 
@@ -150,3 +150,18 @@ file-open support; description-only mode remains available on other platforms.
 
 See [read-only sample instructions](docs/READ_ONLY_SAMPLE.md) for access limits,
 source citations, test coverage, and live-report inspection.
+
+## ChatGPT MCP integration foundation
+
+Task #6 adds a transport-independent registry/service and an MCP server with
+`get_agent_capabilities` and `submit_review`. It reuses the existing agents and
+sample reader. Local stdio starts with billable reviews disabled:
+
+```bash
+python -m h2o_integration --transport stdio
+```
+
+Protected Streamable HTTP is available for a future approved HTTPS deployment;
+it requires OAuth issuer/JWKS/resource configuration and scoped access tokens.
+No hosting or ChatGPT connection is created automatically. See the
+[MCP setup, deployment, authentication and ChatGPT guide](docs/CHATGPT_MCP.md).

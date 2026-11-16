@@ -1,3 +1,7 @@
 # Current official OpenAI Agents SDK; supports Python 3.10+.
 openai-agents==0.24.0
 python-dotenv==1.2.4
+# Explicit integration dependencies (already transitive dependencies of the SDK).
+mcp==2.3.0
+PyJWT[crypto]==2.15.1
+uvicorn==0.54.0
