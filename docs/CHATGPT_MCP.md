@@ -144,7 +144,7 @@ You must provide:
 | Hosting/TLS | Approved process/container host and reverse proxy with a valid HTTPS certificate. |
 | Backend billing | OpenAI API key/project with model access and appropriate billing controls. |
 | Resource | `H2O_MCP_RESOURCE_URL=https://approved-host.example/mcp` (exact audience, no trailing slash/query). |
-| OAuth issuer | `H2O_MCP_OAUTH_ISSUER=https://approved-identity.example` (exact issuer, including any tenant path). |
+| OAuth issuer | `H2O_MCP_OAUTH_ISSUER=https://approved-identity.example/` (copy the exact canonical issuer from provider discovery, including any tenant path). |
 | Signing keys | `H2O_MCP_JWKS_URL=https://approved-identity.example/keys` (trusted provider's JWKS, never caller input). |
 | Access policy | IdP grants the dedicated `h2o:review` scope only to approved users/clients. |
 | OAuth client | Provider metadata and PKCE S256; configure predefined client, CIMD or DCR, plus exact ChatGPT callback URI(s). |
@@ -167,6 +167,11 @@ python -m h2o_integration --transport streamable-http --host 127.0.0.1 --port 80
 ```
 
 HTTP startup fails without all OAuth settings; there is no anonymous-HTTP bypass.
+Resource/issuer values must already be canonical (lowercase host, no explicit
+default `:443` port, and the issuer's exact trailing slash). Noncanonical values
+fail at startup so discovery cannot advertise a different JWT audience/issuer.
+Do not rewrite an identity provider's issuer arbitrarily; use the exact value
+from its discovery metadata and verify that it is accepted before deployment.
 `--host 0.0.0.0` is available for an approved private container network, not a
 recommendation to publish the raw HTTP port.
 
@@ -258,3 +263,81 @@ SDK 2.3.0. Dependency consistency, Python 3.10 syntax, credential scans, and dif
 checks passed. Python 3.10 was not runtime-tested. No new live model calls,
 public/tunnel deployment, real identity-provider login, or actual ChatGPT
 connection was performed. Those remain explicit operator setup/acceptance work.
+
+Task #7 review added a discovery/JWT-identifier regression fix: accepted URL
+spellings containing `:443`, uppercase hostnames, or a missing issuer-root slash
+could previously diverge from the MCP SDK's normalized metadata and reject valid
+tokens. Startup now rejects these mismatches. The updated suite has **59 passing
+offline tests**, including this new regression and the published scope metadata.
+
+## Task #7: proposed private deployment (not authorized or deployed)
+
+Recommended initial topology: one managed Render Python web-service instance and
+a dedicated Auth0 tenant. This avoids a VM to patch, a database, a custom login
+server, custom-domain purchases, and autoscaling. Access is private by OAuth even
+though the MCP HTTPS endpoint is internet-reachable; this is not private-network
+hosting.
+
+As checked November 16, 2026, [Render's pricing](https://render.com/pricing)
+lists 0.5 CPU/512 MB at $7/month on a $0 Hobby workspace, and
+[Auth0 Free](https://auth0.com/pricing) lists $0/month with capacity well above two
+users. Budget approximately $7/month plus OpenAI API usage and any applicable
+provider overages/tax. Reconfirm current plan entitlements before purchase.
+Render's [free instances sleep after 15 minutes and can take about a minute to
+restart](https://render.com/docs/free), which can disrupt interactive MCP use.
+
+Proposed hosting settings, to prepare locally before any external action:
+
+- One instance/worker; no database, autoscaling, or automatic deploys.
+- Use the included `onrender.com` hostname and managed TLS initially.
+- Build: `python -m pip install -r requirements.txt`.
+- Start: `python -m h2o_integration --transport streamable-http --host 0.0.0.0 --port "$PORT"`.
+- Use Render's default TCP health check initially, not an unauthenticated call to
+  the protected `/mcp` tool endpoint. A later health endpoint can expose only a
+  constant readiness status, without secrets or backend API calls.
+- Preserve Host/Authorization at the edge. Keep `H2O_MCP_ENABLE_REVIEWS=0` during
+  authentication acceptance tests; set the backend key only in secret settings.
+
+Proposed OAuth settings:
+
+1. Create a dedicated tenant/connection, disable public signup, and provision only
+   the first authorized user. Enable only that connection for the application.
+2. Register an RS256 custom API with the exact canonical HTTPS `/mcp` resource
+   URL as its identifier and a single `h2o:review` permission. Enable API RBAC and
+   grant that permission only to approved users. Without RBAC, Auth0 can include
+   requested API scopes regardless of user assignments; see
+   [Auth0's API RBAC guidance](https://auth0.com/docs/manage-users/access-control/configure-core-rbac/enable-role-based-access-control-for-apis).
+3. Use a pre-registered authorization-code/PKCE S256 OAuth client supported by
+   ChatGPT, with the exact callback URI shown in its connection flow. No broad
+   DCR/CIMD onboarding is needed for this initial single-client setup.
+4. Enable Auth0's [Resource Parameter Compatibility Profile and Include Issuer
+   in Authorization Responses](https://auth0.com/ai/docs/mcp/guides/resource-param-compatibility-profile).
+   Confirm that `resource` produces the exact required token audience.
+5. Copy the canonical issuer and JWKS URL from provider discovery. Use short
+   access-token lifetimes (for example, ten minutes). If persistent login is
+   desired, enable offline access, request `offline_access`, allow refresh tokens,
+   and enable refresh-token rotation. The real connection must exercise refresh.
+6. Add a second user later only after owner approval: provision their identity,
+   grant the same review permission, and enable their ChatGPT app access. Do not
+   share the first person's tokens. Blocking a user/revoking refresh tokens does
+   not instantly invalidate an already-issued JWT; it remains valid until expiry.
+
+The server delegates eligibility to the IdP's signed scope grants; it has no
+separate user database or subject allowlist. Closed signup and correctly assigned
+API permissions are therefore deployment requirements, not UI-only preferences.
+
+Codex can prepare code fixes, regression tests, a deployment manifest with secret
+placeholders, startup commands, and acceptance scripts without external access.
+Creating/configuring provider accounts, authorizing repository access, accepting
+terms/billing, publishing the endpoint, or adding users requires explicit owner
+authorization and appropriate scoped connections. The owner supplies credentials
+through private secret settings and enables ChatGPT account/workspace permissions.
+No such external changes were performed for this plan.
+
+Remaining rollout gates: owner approval of PR merges and provider/budget choice;
+actual hosting/IdP/account configuration; and a real ChatGPT discovery → login/
+consent → PKCE code exchange → scoped tool call → refresh/revocation acceptance
+test. Local tests verify resource-server behavior, not that external flow.
+Only after those pass should the owner authorize billable reviews. Process-local
+rate limits reset on restart and do not form a hard dollar cap; keep one instance
+and use a dedicated backend project with agreed usage/billing controls.

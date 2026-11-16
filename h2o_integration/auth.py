@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 import jwt
 from mcp.server.auth.provider import AccessToken
+from pydantic import AnyHttpUrl
 
 SCOPE = "h2o:review"
 
@@ -31,6 +32,13 @@ class OAuthConfig:
     def __post_init__(self):
         for url in (self.resource, self.issuer, self.jwks_url):
             https_url(url)
+        # AuthSettings serializes these through AnyHttpUrl in OAuth discovery.
+        # Keep its advertised identifiers identical to the strings jwt.decode
+        # verifies. In particular, do not silently normalize an IdP's issuer:
+        # OAuth issuer identifiers require exact matching, including a slash.
+        for url in (self.resource, self.issuer):
+            if str(AnyHttpUrl(url)) != url:
+                raise ValueError("Use canonical resource and issuer URLs matching OAuth discovery exactly.")
         if urlsplit(self.resource).path != "/mcp":
             raise ValueError("The canonical MCP resource URL must end in /mcp without a trailing slash.")
 

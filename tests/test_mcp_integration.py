@@ -29,7 +29,7 @@ from test_smoke import ScriptedModel, delegation, message
 from test_sample_codebase import source_call, SOURCE_FINDING, SOURCE_PLAN
 
 TASK = "Review the fictional Lantern Board mobile navigation."
-AUTH = OAuthConfig("https://h2o.example/mcp", "https://identity.example", "https://identity.example/keys")
+AUTH = OAuthConfig("https://h2o.example/mcp", "https://identity.example/", "https://identity.example/keys")
 
 
 def registry_for(runner):
@@ -239,6 +239,17 @@ class OAuthTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(access.resource, AUTH.resource)
         self.assertEqual(access.scopes, [SCOPE])
 
+    async def test_noncanonical_discovery_identifiers_fail_before_startup(self):
+        for resource, issuer in [
+            ("https://h2o.example:443/mcp", AUTH.issuer),
+            ("https://H2O.EXAMPLE/mcp", AUTH.issuer),
+            (AUTH.resource, "https://identity.example"),
+            (AUTH.resource, "https://IDENTITY.EXAMPLE/"),
+        ]:
+            with self.subTest(resource=resource, issuer=issuer), \
+                 self.assertRaisesRegex(ValueError, "canonical"):
+                OAuthConfig(resource, issuer, AUTH.jwks_url)
+
     async def test_wrong_issuer_audience_expiry_signature_and_algorithms_fail(self):
         verifier = OAuthJWTVerifier(AUTH, jwks_client=self.client)
         cases = [self.token(iss="https://other.example"), self.token(aud="other-resource"),
@@ -266,6 +277,7 @@ class OAuthTests(unittest.IsolatedAsyncioTestCase):
                 metadata = (await client.get("/.well-known/oauth-protected-resource/mcp")).json()
                 self.assertEqual(metadata["resource"], AUTH.resource)
                 self.assertEqual(metadata["authorization_servers"], [AUTH.issuer])
+                self.assertEqual(metadata["scopes_supported"], [SCOPE])
                 headers = {"Authorization": "Bearer " + self.token(), "Accept": "application/json, text/event-stream"}
                 request = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
                 response = await client.post("/mcp", headers=headers, json=request)
