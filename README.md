@@ -1,9 +1,44 @@
-# H2O: two-agent development review prototype
+# PAGENTWORKFLOW: AI development oversight
 
-A minimal manager-style workflow using the official [OpenAI Agents SDK for
-Python](https://openai.github.io/openai-agents-python/) (`openai-agents` 0.24.0).
-Give it a development objective and a frontend application description; it returns
-a prioritized recommendation. It reviews descriptions; it does not implement code.
+PAGENTWORKFLOW works alongside Codex to maintain project context, review changes,
+assess downstream effects, and recommend development priorities. **Codex implements
+code; PAGENTWORKFLOW reviews and guides.** This repository uses the official
+[OpenAI Agents SDK for Python](https://openai.github.io/openai-agents-python/)
+(`openai-agents` 0.24.0).
+
+The first oversight milestone combines version-controlled, explicitly fictional
+project knowledge with a supplied fictional unified diff. The existing Lead/UI
+agents, description CLI, bounded sample reader, source citation checks, and
+live-validation harness remain available. MCP remains an optional future interface;
+it is not deployed and does not yet expose the new oversight workflow.
+
+## First oversight milestone
+
+After installing `requirements.txt` in a Python 3.10+ virtual environment:
+
+```bash
+python -m oversight --demo
+python -m oversight --diff-stdin < examples/oversight_change.diff
+python -m unittest discover -s tests -v
+```
+
+Both review commands default to a **synthetic offline demonstration**: the real
+SDK executes delegation and structured synthesis with a deterministic model
+substitute. No key, `.env`, network connection, or API billing is involved.
+The JSON report separates verified input observations, inferred intent, goal
+alignment assessments, possible risks, and speculative recommendations.
+
+`--run-live` explicitly enables billable OpenAI model calls using a key already
+set in the process environment; the oversight command never loads `.env`.
+Live oversight model quality has not yet been validated. See the
+[oversight workflow and demonstration guide](docs/OVERSIGHT.md) and
+[knowledge editing rules](knowledge/README.md) before using it.
+
+## Preserved frontend review workflow
+
+Give the existing description workflow a development objective and frontend
+application description; it returns a prioritized recommendation. It reviews
+descriptions; it does not implement code.
 
 ## Architecture
 
@@ -45,14 +80,16 @@ conversation storage. The optional MCP integration below adds a separate server.
 
 ## Setup and run
 
-Requires Python **3.10+**, an OpenAI API key, and access to a model supporting tool
-calls. Run these commands from the repository root:
+Requires Python **3.10+**. The existing description/source CLI and explicitly
+enabled live checks also require an OpenAI API key and model access. Run these
+commands from the repository root:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 # Windows PowerShell: .venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+# Optional for the existing h2o.py/live_test.py commands:
 cp .env.example .env
 ```
 
@@ -163,5 +200,7 @@ python -m h2o_integration --transport stdio
 
 Protected Streamable HTTP is available for a future approved HTTPS deployment;
 it requires OAuth issuer/JWKS/resource configuration and scoped access tokens.
-No hosting or ChatGPT connection is created automatically. See the
+No hosting or ChatGPT connection is created automatically. It remains optional
+under the oversight strategy; adding a structured oversight tool is future work.
+See the
 [MCP setup, deployment, authentication and ChatGPT guide](docs/CHATGPT_MCP.md).

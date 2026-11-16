@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "project": "fictional-lantern-board",
+  "revision": 1,
+  "fictional": true,
+  "entries": [
+    {
+      "id": "vision", "revision": 1, "kind": "vision", "status": "approved",
+      "text": "Fictional demonstration: help visitors discover workshops and complete an understandable local reservation simulation.",
+      "source": {"document": "fictional-owner-brief", "revision": "1", "locator": "vision"},
+      "revised_on": "2026-11-16", "approval": {"by": "fictional-project-owner", "source_revision": "1"},
+      "modules": [], "paths": [], "dependencies": []
+    },
+    {
+      "id": "navigation", "revision": 1, "kind": "module_objective", "status": "approved",
+      "text": "The workshop navigation should be discoverable and usable with a keyboard and assistive technology.",
+      "source": {"document": "fictional-owner-brief", "revision": "1", "locator": "modules/navigation"},
+      "revised_on": "2026-11-16", "approval": {"by": "fictional-project-owner", "source_revision": "1"},
+      "modules": ["navigation"], "paths": ["index.html", "app.js"], "dependencies": []
+    },
+    {
+      "id": "booking", "revision": 1, "kind": "module_objective", "status": "approved",
+      "text": "Submitting the fictional booking form should show a local confirmation without navigating away or sending a request.",
+      "source": {"document": "fictional-owner-brief", "revision": "1", "locator": "modules/booking"},
+      "revised_on": "2026-11-16", "approval": {"by": "fictional-project-owner", "source_revision": "1"},
+      "modules": ["booking"], "paths": ["index.html", "app.js"], "dependencies": ["navigation"]
+    },
+    {
+      "id": "accessible-controls", "revision": 1, "kind": "ui_principle", "status": "approved",
+      "text": "Interactive controls need an understandable accessible name, visible keyboard focus, and state communication when relevant.",
+      "source": {"document": "fictional-design-note", "revision": "1", "locator": "controls"},
+      "revised_on": "2026-11-16", "approval": {"by": "fictional-project-owner", "source_revision": "1"},
+      "modules": ["navigation", "booking"], "paths": ["index.html", "styles.css"], "dependencies": []
+    },
+    {
+      "id": "local-only", "revision": 1, "kind": "architecture_principle", "status": "approved",
+      "text": "Keep the sample local and read-only for reviewers; the sample must not send real reservations or persist personal data.",
+      "source": {"document": "fictional-design-note", "revision": "1", "locator": "boundaries"},
+      "revised_on": "2026-11-16", "approval": {"by": "fictional-project-owner", "source_revision": "1"},
+      "modules": ["booking"], "paths": ["app.js"], "dependencies": []
+    },
+    {
+      "id": "menu-priority", "revision": 1, "kind": "priority", "status": "approved",
+      "text": "First improve the menu button's accessible name while preserving the local booking demonstration.",
+      "source": {"document": "fictional-priority-list", "revision": "1", "locator": "priority-1"},
+      "revised_on": "2026-11-16", "approval": {"by": "fictional-project-owner", "source_revision": "1"},
+      "modules": ["navigation", "booking"], "paths": ["index.html", "app.js"], "dependencies": []
+    },
+    {
+      "id": "plain-frontend", "revision": 1, "kind": "decision", "status": "approved",
+      "text": "Retain plain HTML, CSS, and JavaScript to keep this fictional demonstration easy to inspect; a framework migration is not an approved priority.",
+      "source": {"document": "fictional-decision-log", "revision": "1", "locator": "decision-001"},
+      "revised_on": "2026-11-16", "approval": {"by": "fictional-project-owner", "source_revision": "1"},
+      "modules": [], "paths": [], "dependencies": []
+    },
+    {
+      "id": "review-limit", "revision": 1, "kind": "limitation", "status": "approved",
+      "text": "Diff review cannot establish runtime behavior, visual appearance, or actual accessibility conformance; human browser checks remain necessary.",
+      "source": {"document": "fictional-design-note", "revision": "1", "locator": "review-limits"},
+      "revised_on": "2026-11-16", "approval": {"by": "fictional-project-owner", "source_revision": "1"},
+      "modules": [], "paths": [], "dependencies": []
+    },
+    {
+      "id": "no-payments", "revision": 1, "kind": "exclusion", "status": "approved",
+      "text": "Real bookings, payments, authentication, and personal-data storage are deliberately excluded from the fictional sample.",
+      "source": {"document": "fictional-owner-brief", "revision": "1", "locator": "excluded"},
+      "revised_on": "2026-11-16", "approval": {"by": "fictional-project-owner", "source_revision": "1"},
+      "modules": [], "paths": [], "dependencies": []
+    },
+    {
+      "id": "mobile-audience", "revision": 1, "kind": "vision", "status": "assumption",
+      "text": "Most fictional visitors might use phones; there is no supporting research.",
+      "source": {"document": "fictional-workshop-notes", "revision": "1", "locator": "hypothesis"},
+      "revised_on": "2026-11-16", "approval": null,
+      "modules": [], "paths": [], "dependencies": []
+    },
+    {
+      "id": "future-search", "revision": 1, "kind": "priority", "status": "suggestion",
+      "text": "Consider search only after someone demonstrates a need; it is not approved work.",
+      "source": {"document": "fictional-workshop-notes", "revision": "1", "locator": "ideas"},
+      "revised_on": "2026-11-16", "approval": null,
+      "modules": [], "paths": [], "dependencies": []
+    },
+    {
+      "id": "conversion-claim", "revision": 1, "kind": "limitation", "status": "unverified",
+      "text": "A fictional note claims visitors abandon the form; no analytics or user tests were supplied.",
+      "source": {"document": "fictional-workshop-notes", "revision": "1", "locator": "unverified-claim"},
+      "revised_on": "2026-11-16", "approval": null,
+      "modules": ["booking"], "paths": [], "dependencies": []
+    }
+  ]
+}

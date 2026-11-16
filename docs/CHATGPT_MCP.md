@@ -1,5 +1,10 @@
 # Task #6: ChatGPT integration foundation
 
+The development oversight pivot preserves this integration as an optional future
+interface. It is not deployed. These two original tools still review descriptions
+or the bounded sample; they do not yet expose the structured oversight workflow.
+See [the oversight milestone](OVERSIGHT.md) for that workflow and its next steps.
+
 Research and local validation date: November 16, 2026.
 
 This is an MCP resource server, not a hosted deployment, a new agent framework,
