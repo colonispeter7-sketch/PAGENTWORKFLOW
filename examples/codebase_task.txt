@@ -1,0 +1,5 @@
+Review the bundled fictional Lantern Board frontend for a one-developer,
+one-week iteration. Focus on mobile navigation, accessibility, and booking-form
+clarity. This is a source-only demonstration; do not claim browser or user tests.
+Use the sample-codebase tool and cite concrete files and lines for findings and
+the Lead's final recommendation. Keep the same branding and no real backend.

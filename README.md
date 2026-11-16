@@ -27,8 +27,10 @@ CLI objective + application description
 
 The Lead owns the conversation and synthesizes the specialist's findings. The UI
 Agent is a tool, not a handoff: it receives the task the Lead delegates and returns
-its review to the Lead. There are exactly two agents and one tool. Neither agent
-has browser, shell, file, repository, or other external-service tools.
+its review to the Lead. The default description-only mode has exactly two agents
+and one tool. Neither agent has browser, shell, or repository tools. An explicit
+`--sample-codebase` mode adds one bounded file-reading tool to the UI Agent for
+three allowlisted fictional files; the Lead still has only its specialist tool.
 
 The Lead's first model turn requires a tool call; the SDK resets that requirement
 after the call so the Lead can answer. Completed, nonempty specialist reviews are
@@ -129,3 +131,22 @@ offline test discovery never makes live requests.
 
 See [live validation instructions](docs/LIVE_VALIDATION.md) for exact setup,
 billing limits, exit codes, report inspection, and the limits of automated checks.
+
+## Optional read-only sample codebase
+
+Task #4 lets the UI Agent inspect a bundled fictional HTML/CSS/JavaScript sample:
+
+```bash
+python h2o.py --sample-codebase --task-file examples/codebase_task.txt
+python live_test.py --sample-codebase             # skips, no API calls
+python live_test.py --run-live --sample-codebase  # billable live source review
+```
+
+The reader permits one bounded batch of `index.html`, `styles.css`, and `app.js`
+under `examples/sample_frontend/`. It rejects unlisted paths, links, unsafe files,
+and excess reads/bytes. Both agents' outputs require file/line citations checked
+against the returned source metadata. Source mode currently requires secure POSIX
+file-open support; description-only mode remains available on other platforms.
+
+See [read-only sample instructions](docs/READ_ONLY_SAMPLE.md) for access limits,
+source citations, test coverage, and live-report inspection.

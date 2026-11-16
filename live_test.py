@@ -9,6 +9,7 @@ import importlib.metadata
 import json
 import os
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 try:
@@ -23,6 +24,7 @@ try:
     )
 
     import h2o
+    from sample_codebase import SampleAccessError, MAX_FILE_BYTES, MAX_TOTAL_BYTES
 except ImportError:
     raise SystemExit("FAIL [configuration]: install dependencies with python -m pip install -r requirements.txt")
 
@@ -41,6 +43,7 @@ class Evidence(RunHooks):
         self.calls = []
         self.outputs = []
         self.received_by_lead = []
+        self.received_by_ui = []
         self.ui_reviews = []
         self.requests = []
 
@@ -49,10 +52,12 @@ class Evidence(RunHooks):
 
     async def on_llm_start(self, context, agent, system_prompt, input_items):
         self.event("model_request", agent)
-        if agent.name == "Lead Agent":
+        if agent.name in ("Lead Agent", "UI Agent"):
             for item in input_items:
                 if isinstance(item, dict) and item.get("type") == "function_call_output":
-                    self.received_by_lead.append({
+                    destination = (self.received_by_lead if agent.name == "Lead Agent"
+                                   else self.received_by_ui)
+                    destination.append({
                         "call_id": item.get("call_id"), "output": item.get("output"),
                         "ui_completed": bool(self.ui_reviews),
                     })
@@ -93,14 +98,36 @@ class Evidence(RunHooks):
             raise h2o.DelegationError("Specialist tool calls did not all complete.")
         if tuple(self.ui_reviews) != result.ui_reviews:
             raise h2o.DelegationError("Specialist lifecycle does not match returned reviews.")
-        for call, output in zip(self.calls, self.outputs):
-            if (call["agent"] != "Lead Agent" or call["tool"] != "review_ui"
-                    or not call["call_id"] or call["call_id"] != output["call_id"]
-                    or output["output"] not in result.ui_reviews
-                    or not any(item["call_id"] == call["call_id"]
-                               and item["output"] == output["output"]
-                               and item["ui_completed"] for item in self.received_by_lead)):
-                raise h2o.DelegationError("UI findings were not delivered to Lead synthesis.")
+        # Nested tools finish before their parent. Correlate by call ID, not order.
+        outputs = {item["call_id"]: item["output"] for item in self.outputs}
+        if (len(outputs) != len(self.calls)
+                or len({call["call_id"] for call in self.calls}) != len(self.calls)):
+            raise h2o.DelegationError("Tool-call IDs were missing or duplicated.")
+        source_calls = 0
+        for call in self.calls:
+            call_id = call["call_id"]
+            if not call_id or call_id not in outputs:
+                raise h2o.DelegationError("A tool result did not match its invocation.")
+            output = outputs[call_id]
+            if call["agent"] == "Lead Agent" and call["tool"] == "review_ui":
+                if (output not in result.ui_reviews
+                        or not any(item["call_id"] == call_id and item["output"] == output
+                                   and item["ui_completed"] for item in self.received_by_lead)):
+                    raise h2o.DelegationError("UI findings were not delivered to Lead synthesis.")
+            elif (call["agent"] == "UI Agent" and call["tool"] == "read_sample_files"
+                  and result.source_files):
+                source_calls += 1
+                if not any(item["call_id"] == call_id and item["output"] == output
+                           for item in self.received_by_ui):
+                    raise h2o.DelegationError("The UI Agent did not receive the source tool output.")
+                files = json.loads(output)["files"]
+                if [{key: file[key] for key in ("path", "sha256", "line_count")}
+                    for file in files] != [asdict(file) for file in result.source_files]:
+                    raise h2o.DelegationError("Source evidence did not match the files actually read.")
+            else:
+                raise h2o.DelegationError("Unexpected agent or tool in the workflow.")
+        if result.source_files and source_calls != 1:
+            raise h2o.DelegationError("Source mode requires one completed source-tool call.")
         if not self.events or self.events[-1] != {
             "event": "agent_completed", "agent": "Lead Agent"
         }:
@@ -113,6 +140,7 @@ class Evidence(RunHooks):
         return {
             "events": self.events, "tool_calls": self.calls, "tool_outputs": self.outputs,
             "received_by_lead": self.received_by_lead, "ui_reviews": self.ui_reviews,
+            "received_by_ui": self.received_by_ui,
             "requests": self.requests,
             "input_tokens": sum(item["input_tokens"] for item in self.requests),
             "output_tokens": sum(item["output_tokens"] for item in self.requests),
@@ -133,6 +161,7 @@ def classify_error(error):
         ((APITimeoutError, APIConnectionError, TimeoutError, asyncio.TimeoutError), "connectivity",
          "The API or overall run timed out, or could not connect. Check connectivity."),
         (h2o.ResponseError, "response", "An agent returned an empty, incomplete, or copied response. Inspect the evidence."),
+        (SampleAccessError, "source_access", "The bounded fictional-source read was denied. Inspect fixture safety and read limits."),
         ((h2o.DelegationError, ModelBehaviorError, MaxTurnsExceeded), "delegation",
          "The specialist tool flow did not complete within its limits. Inspect the event evidence."),
         (APIStatusError, "api_response", "The API returned an unexpected HTTP status."),
@@ -144,7 +173,7 @@ def classify_error(error):
     return "response", "Unexpected SDK or response failure; no validated result.", type(chain[0]).__name__
 
 
-async def execute(model, evidence, task):
+async def execute(model, evidence, task, *, sample_codebase=False):
     # Explicit official endpoint; do not inherit OPENAI_BASE_URL.
     # Normal HTTPS proxy/CA settings still apply.
     async with AsyncOpenAI(
@@ -155,6 +184,7 @@ async def execute(model, evidence, task):
                 task,
                 OpenAIResponsesModel(model=model, openai_client=client),
                 hooks=evidence,
+                sample_codebase=sample_codebase,
                 model_settings=ModelSettings(
                     max_tokens=MAX_OUTPUT_TOKENS, store=False,
                     retry=ModelRetrySettings(max_retries=0),
@@ -168,6 +198,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-live", action="store_true", help="Allow billable OpenAI API requests")
     parser.add_argument("--model", help="Tool-capable Responses API model; overrides OPENAI_MODEL")
+    parser.add_argument("--sample-codebase", action="store_true",
+                        help="Validate bounded reads of the fixed fictional codebase as well")
     args = parser.parse_args(argv)
     report = {"status": "skipped", "message": "No API calls. Add --run-live to opt in to API billing."}
     if not args.run_live:
@@ -182,10 +214,13 @@ def main(argv=None):
         return 2
     model = args.model if args.model is not None else os.getenv("OPENAI_MODEL", h2o.DEFAULT_MODEL)
     checks = dict.fromkeys(("configuration", "authentication", "delegation", "response"), "not_run")
+    if args.sample_codebase:
+        checks["source_access"] = "not_run"
     report = {
         "status": "blocked", "model": model, "sdk_version": importlib.metadata.version("openai-agents"),
         "python": sys.version.split()[0], "checks": checks,
-        "fixture": "examples/sample_task.txt", "max_output_tokens_per_request": MAX_OUTPUT_TOKENS,
+        "fixture": "examples/codebase_task.txt" if args.sample_codebase else "examples/sample_task.txt",
+        "sample_codebase": args.sample_codebase, "max_output_tokens_per_request": MAX_OUTPUT_TOKENS,
         "overall_timeout_seconds": RUN_TIMEOUT, "automatic_retries": 0,
     }
 
@@ -206,7 +241,7 @@ def main(argv=None):
 
     evidence = Evidence()
     try:
-        fixture = ROOT / "examples/sample_task.txt"
+        fixture = ROOT / report["fixture"]
         task_bytes = fixture.read_bytes()
         task = task_bytes.decode("utf-8")
         report["fixture_sha256"] = hashlib.sha256(task_bytes).hexdigest()
@@ -215,8 +250,14 @@ def main(argv=None):
         return finish(2, "configuration", "Cannot read the fixed UTF-8 fictional sample task.")
 
     try:
-        result = asyncio.run(execute(model, evidence, task))
+        result = asyncio.run(
+            execute(model, evidence, task, sample_codebase=True) if args.sample_codebase
+            else execute(model, evidence, task)
+        )
         report["recommendation"] = result.recommendation
+        report["source_files"] = [asdict(source) for source in result.source_files]
+        if args.sample_codebase and not result.source_files:
+            raise h2o.DelegationError("Source mode finished without source-file evidence.")
         evidence.validate(result)
     except Exception as error:
         report["status"] = "failed"
@@ -234,6 +275,10 @@ def main(argv=None):
         status="passed", evidence=evidence.report(), recommendation=result.recommendation,
         manual_quality_review_required=True,
     )
+    if args.sample_codebase:
+        report["source_read_limits"] = {
+            "batches_per_workflow": 1, "file_bytes": MAX_FILE_BYTES, "total_bytes": MAX_TOTAL_BYTES,
+        }
     return finish(0, "success", "Live delegation and Lead synthesis flow verified. Inspect recommendation quality manually.")
 
 

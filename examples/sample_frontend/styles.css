@@ -1,0 +1,7 @@
+body { margin: 0; padding: 1rem; color: #aaa; background: white; font-family: sans-serif; }
+header { display: flex; align-items: center; gap: 1rem; }
+.hero { min-height: 70vh; display: grid; place-content: center; }
+article, form { border: 1px solid #ddd; padding: 1rem; margin-block: 1rem; }
+input, button { display: block; margin-block: 0.5rem; }
+input:focus, button:focus, a:focus { outline: none; }
+footer { margin-top: 4rem; }

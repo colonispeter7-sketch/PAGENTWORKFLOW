@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lantern Board — fictional workshop demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Lantern Board</h1>
+    <button id="menu-toggle">☰</button>
+    <nav id="menu" hidden><a href="#workshops">Explore</a></nav>
+  </header>
+  <main>
+    <section class="hero"><h2>Make something together</h2><p>A fictional community workshop planner.</p></section>
+    <section id="workshops">
+      <h2>Workshops</h2>
+      <article><h3>Paper Lanterns</h3><p>Saturday at 10:00 · 8 fictional seats · $12 demo price</p></article>
+    </section>
+    <form id="booking">
+      <h2>Reserve a demo seat</h2>
+      <input name="name" placeholder="Your name" required>
+      <input name="email" type="email" placeholder="Email address" required>
+      <button type="submit">Continue</button>
+    </form>
+    <p id="confirmation" hidden>Done</p>
+  </main>
+  <footer><a href="#workshops">Explore</a> · Demonstration only; no real bookings.</footer>
+  <script src="app.js"></script>
+</body>
+</html>
