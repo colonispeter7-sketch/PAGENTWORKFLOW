@@ -148,6 +148,41 @@ check. Execution used Python 3.12.14; a Python 3.10 runtime was not exercised.
 
 The development environment initially had no `OPENAI_API_KEY` or project `.env`.
 The opt-in command therefore reported `blocked/authentication` before any API
-request (exit code 2, no API usage from the attempt). A live pass must be recorded
-separately after credentials are configured;
-an offline pass or a missing-key block must never be reported as live success.
+request (exit code 2, no API usage from that initial attempt).
+
+### Live run: November 16, 2026
+
+After a key was configured privately, this command completed with **exit code 0**:
+
+```bash
+python live_test.py --run-live > artifacts/live-validation-20261116.json
+```
+
+The report returned `status: passed`. Configuration, authentication, delegation,
+and response checks all passed with `gpt-4.1-mini`, SDK 0.24.0, and Python 3.12.14.
+The fixed fictional fixture SHA-256 was
+`928083574b72c3ec8f500c09ba812415e79326499f44219cf442dd906a1a41b6`.
+
+| Completed model request | Input tokens | Output tokens | Incomplete |
+| --- | ---: | ---: | --- |
+| Lead delegation | 495 | 257 | No |
+| UI specialist review | 383 | 909 | No |
+| Lead synthesis | 1,665 | 794 | No |
+| **Total** | **2,543** | **1,960** | |
+
+The Lead invoked `review_ui` once. Its call ID
+`call_AV2xIhsJNIi7tTRcxgwdPYB8` matched the completed tool output and the review
+delivered to the subsequent Lead model request. The UI Agent completed before
+the Lead finished with a distinct recommendation. No automatic retries occurred.
+
+Manual inspection confirmed that the Lead consolidated the UI findings into a
+prioritized one-week plan with acceptance checks, attribution, and assumptions.
+It covered workshop discoverability, booking-state preservation, accessibility,
+form labels/errors, text contrast, and confirmation content. Moving the booking
+summary before signup remains a feasibility question requiring human review;
+the demo does not prove that a particular frontend/backend can support it.
+
+The complete local report includes both agents' outputs and API response IDs;
+it remains under gitignored `artifacts/`. The key and `.env` were not committed.
+This run verifies the tested model/account configuration and orchestration; it
+does not guarantee future availability or recommendation quality on other tasks.
